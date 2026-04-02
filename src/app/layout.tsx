@@ -3,7 +3,7 @@ import { ThemeProvider } from 'next-themes'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'PromptChain — Humor Flavor Manager',
+  title: 'Prompt Chain — Humor Flavor Manager',
   description: 'Admin tool for managing humor flavor prompt chains',
 }
 
