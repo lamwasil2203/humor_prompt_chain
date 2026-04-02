@@ -21,3 +21,6 @@ yarn-error.log*
 # editor
 .idea/
 .vscode/
+
+# local config
+.mcp.json
