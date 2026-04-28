@@ -5,10 +5,19 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.almostcrac
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
+
+  // getSession reads from the cookie (has the raw access token)
+  const { data: { session } } = await supabase.auth.getSession()
+  // getUser verifies the JWT with the Supabase server
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
+  const accessToken = session?.access_token
+  if (!accessToken) {
+    return NextResponse.json({ error: 'No active session — please sign in again' }, { status: 401 })
   }
 
   const { data: profile } = await supabase
@@ -28,9 +37,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'imageId and humorFlavorId are required' }, { status: 400 })
   }
 
-  const { data: { session } } = await supabase.auth.getSession()
-  const accessToken = session?.access_token
-
   try {
     const externalRes = await fetch(`${API_BASE}/pipeline/generate-captions`, {
       method: 'POST',
@@ -46,10 +52,11 @@ export async function POST(request: NextRequest) {
     try { data = JSON.parse(text) } catch { data = { raw: text } }
 
     if (!externalRes.ok) {
-      const msg = (data as Record<string, unknown>)?.error
-        ?? (data as Record<string, unknown>)?.message
-        ?? text
-        ?? `HTTP ${externalRes.status}`
+      const d = data as Record<string, unknown>
+      const msg = typeof d?.error === 'string' ? d.error
+        : typeof d?.message === 'string' ? d.message
+        : text || `HTTP ${externalRes.status}`
+      console.error('[test-flavor] external API error', externalRes.status, text)
       return NextResponse.json(
         { error: `External API (${externalRes.status}): ${msg}`, raw: data },
         { status: 502 }
