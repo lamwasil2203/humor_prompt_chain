@@ -82,3 +82,56 @@ export async function deleteFlavor(id: number): Promise<{ error?: string }> {
   revalidatePath('/admin/flavors')
   return {}
 }
+
+export async function duplicateFlavor(id: number): Promise<{ error?: string }> {
+  try {
+    const { supabase } = await getAdminUser()
+
+    const { data: original, error: fetchErr } = await supabase
+      .from('humor_flavors')
+      .select('slug, description')
+      .eq('id', id)
+      .single()
+    if (fetchErr || !original) return { error: fetchErr?.message ?? 'Flavor not found' }
+
+    // Find a unique slug: "{slug}-copy", then "{slug}-copy-2", etc.
+    const base = `${original.slug}-copy`
+    const { data: existing } = await supabase
+      .from('humor_flavors')
+      .select('slug')
+      .like('slug', `${base}%`)
+
+    const taken = new Set(existing?.map(r => r.slug) ?? [])
+    let newSlug = base
+    let n = 2
+    while (taken.has(newSlug)) {
+      newSlug = `${base}-${n++}`
+    }
+
+    const { data: newFlavor, error: insertErr } = await supabase
+      .from('humor_flavors')
+      .insert({ slug: newSlug, description: original.description })
+      .select('id')
+      .single()
+    if (insertErr || !newFlavor) return { error: insertErr?.message ?? 'Failed to create duplicate' }
+
+    // Copy all steps
+    const { data: steps } = await supabase
+      .from('humor_flavor_steps')
+      .select('order_by, description, humor_flavor_step_type_id, llm_model_id, llm_input_type_id, llm_output_type_id, llm_temperature, llm_system_prompt, llm_user_prompt')
+      .eq('humor_flavor_id', id)
+      .order('order_by', { ascending: true })
+
+    if (steps && steps.length > 0) {
+      const { error: stepsErr } = await supabase.from('humor_flavor_steps').insert(
+        steps.map(s => ({ ...s, humor_flavor_id: newFlavor.id }))
+      )
+      if (stepsErr) return { error: stepsErr.message }
+    }
+  } catch (e) {
+    return { error: (e as Error).message }
+  }
+
+  revalidatePath('/admin/flavors')
+  return {}
+}

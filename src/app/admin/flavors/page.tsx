@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import FlavorDeleteButton from '@/components/flavors/FlavorDeleteButton'
+import FlavorDuplicateButton from '@/components/flavors/FlavorDuplicateButton'
 
 export default async function FlavorsPage() {
   const supabase = await createClient()
@@ -108,6 +109,7 @@ export default async function FlavorsPage() {
                       >
                         Test
                       </Link>
+                      <FlavorDuplicateButton id={flavor.id} />
                       <FlavorDeleteButton id={flavor.id} slug={flavor.slug} />
                     </div>
                   </td>
